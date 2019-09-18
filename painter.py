@@ -34,7 +34,10 @@ class PainterConcurrentPaint(Resource):
                 for col, value in enumerate(cols):
                     colors.append(value)
 
-                    delay = 5
+                    if 'delay' in body:
+                        delay = body['delay']
+                    else:
+                        delay = constants.DELAY_IN_SECS
 
                     payload = {
                         'action': 'paint',
@@ -42,7 +45,10 @@ class PainterConcurrentPaint(Resource):
                         'col': col,
                         'value': value
                     }
-                    utils.postCloudTask(constants.PAINTER_QUEUE, '/matrix/delayedtask/{}'.format(delay), payload=payload, start_in=0)
+                    if delay > 0:
+                        utils.postCloudTask(constants.PAINTER_QUEUE, '/matrix/delayedtask/{}'.format(delay), payload=payload, start_in=0)
+                    else:
+                        utils.postCloudTask(constants.PAINTER_QUEUE, '/matrix/task', payload=payload, start_in=0)
 
             success = True
 
@@ -83,7 +89,7 @@ class PainterTask(Resource):
             action = payload['action']
 
             if action == 'invert_fill':
-                dim = 5
+                dim = constants.CANVAS_DIMENSION
                 matrix = fs.getMatrixAll()
                 if matrix is not None:
                     batch = fs.initializeBatch()
@@ -94,13 +100,14 @@ class PainterTask(Resource):
                             color = matrix[dim*row + col]['value']
                             color = constants.LUT_LENGTH - color
 
-                            cell_id = 'row{}col{}'.format(row, col)
-                            cell_data = {
-                                'updated': millis,
-                                'value': color
-                            }
+                            if color >= 0:
+                                cell_id = 'row{}col{}'.format(row, col)
+                                cell_data = {
+                                    'updated': millis,
+                                    'value': color
+                                }
 
-                            fs.updateMatrixCellBatched(batch, cell_id, cell_data)
+                                fs.updateMatrixCellBatched(batch, cell_id, cell_data)
                             cells.append(cell_data)
                     fs.commitBatch(batch)
 
@@ -113,18 +120,19 @@ class PainterTask(Resource):
             if action == 'fill':
                 color = payload['value']
 
-                dim = 5
+                dim = constants.CANVAS_DIMENSION
                 batch = fs.initializeBatch()
                 cells = []
                 for row in range(dim):
                     for col in range(dim):
-                        cell_id = 'row{}col{}'.format(row, col)
-                        cell_data = {
-                            'updated': millis,
-                            'value': color
-                        }
+                        if color >= 0:
+                            cell_id = 'row{}col{}'.format(row, col)
+                            cell_data = {
+                                'updated': millis,
+                                'value': color
+                            }
 
-                        fs.updateMatrixCellBatched(batch, cell_id, cell_data)
+                            fs.updateMatrixCellBatched(batch, cell_id, cell_data)
                         cells.append(cell_data)
                 fs.commitBatch(batch)
 
@@ -136,12 +144,13 @@ class PainterTask(Resource):
                 row = payload['row']
                 col = payload['col']
 
-                cell_id = 'row{}col{}'.format(row, col)
-                cell_data = {
-                    'updated': millis,
-                    'value': color
-                }
-                fs.updateMatrixCell(cell_id, cell_data)
+                if color >= 0:
+                    cell_id = 'row{}col{}'.format(row, col)
+                    cell_data = {
+                        'updated': millis,
+                        'value': color
+                    }
+                    fs.updateMatrixCell(cell_id, cell_data)
 
                 success = True
 
@@ -154,12 +163,13 @@ class PainterTask(Resource):
                     color = cell[0]['value']
                     color = constants.LUT_LENGTH - color
 
-                    cell_id = 'row{}col{}'.format(row, col)
-                    cell_data = {
-                        'updated': millis,
-                        'value': color
-                    }
-                    fs.updateMatrixCell(cell_id, cell_data)
+                    if color >= 0:
+                        cell_id = 'row{}col{}'.format(row, col)
+                        cell_data = {
+                            'updated': millis,
+                            'value': color
+                        }
+                        fs.updateMatrixCell(cell_id, cell_data)
 
                     success = True
 
@@ -215,7 +225,7 @@ class PainterFill(Resource):
         success = False
         return_code = 403
 
-        dim = 5
+        dim = constants.CANVAS_DIMENSION
 
         batch = fs.initializeBatch()
 
