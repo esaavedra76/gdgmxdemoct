@@ -23,7 +23,7 @@ Accept: application/json
 }
 
 ###
-POST {{host}}/matrix/fill/2
+POST {{host}}/matrix/fill/1
 Content-Type: application/json
 Accept: application/json
 
@@ -31,7 +31,7 @@ Accept: application/json
 }
 
 ###
-POST {{host}}/matrix/0/1/1
+POST {{host}}/matrix/0/1/5
 Content-Type: application/json
 Accept: application/json
 

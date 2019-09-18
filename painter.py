@@ -2,6 +2,7 @@ import logging
 from flask_restful import Resource
 
 import firestore as fs
+import constants
 import utils
 
 import time
@@ -15,7 +16,7 @@ class PainterCell(Resource):
         success = False
         return_code = 403
 
-        time.sleep(10)
+        time.sleep(constants.DELAY_IN_SECS)
 
         cell_id = 'row{}col{}'.format(row, col)
         cell_data = {
