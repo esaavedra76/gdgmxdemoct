@@ -31,11 +31,57 @@ Accept: application/json
 }
 
 ###
-POST {{host}}/matrix/0/1/5
+POST {{host}}/matrix/1/0/9
 Content-Type: application/json
 Accept: application/json
 
 {
+}
+
+###
+POST {{host}}/matrix/paint
+Content-Type: application/json
+Accept: application/json
+
+{
+  "fill": 2,
+  "paint": [
+    [
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      0,
+      0,
+      0
+    ]
+  ]
 }
 
 ###

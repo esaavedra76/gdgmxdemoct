@@ -4,3 +4,5 @@ Flask_RESTful
 Werkzeug
 
 firebase_admin
+google-cloud
+google-cloud-tasks

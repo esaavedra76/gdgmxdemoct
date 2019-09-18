@@ -6,7 +6,7 @@ import firebase_admin
 from firebase_admin import credentials
 
 from matrix import Matrix, MatrixRow
-from painter import PainterCell, PainterFill
+from painter import PainterCell, PainterFill, PainterPaint, PainterTask
 
 import constants
 import utils
@@ -23,6 +23,8 @@ api.add_resource(Matrix, '/matrix')
 api.add_resource(MatrixRow, '/matrix/<int:row>')
 api.add_resource(PainterCell, '/matrix/<int:row>/<int:col>/<int:color>')
 api.add_resource(PainterFill, '/matrix/fill/<int:color>')
+api.add_resource(PainterPaint, '/matrix/paint')
+api.add_resource(PainterTask, '/matrix/task')
 
 
 @app.route('/')

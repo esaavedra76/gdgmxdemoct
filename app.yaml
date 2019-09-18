@@ -1,0 +1,15 @@
+service: driver
+
+env_variables:
+  GOOGLE_CLOUD_PROJECT: driver
+
+runtime: python37
+
+handlers:
+  - url: /
+    script: auto
+
+  - url: /matrix/task/.*
+    script: auto
+#  login: admin
+
