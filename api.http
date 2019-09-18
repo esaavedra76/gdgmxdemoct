@@ -68,6 +68,7 @@ Content-Type: application/json
 Accept: application/json
 
 {
+  "unreliable": true,
   "action": "invert_fill"
 }
 

@@ -6,6 +6,7 @@ import firestore as fs
 import constants
 import utils
 
+import random
 import json
 import time
 
@@ -22,11 +23,23 @@ class PainterConcurrentPaint(Resource):
         if body is not None and 'paint' in body:
             colors = []
 
+            start_painting_at = body['start_painting_at'] if 'start_painting_at' in body else 0
+            start_posteffects_at = body['start_posteffects_at'] if 'start_posteffects_at' in body else 0
+            next_posteffect_at = body['next_posteffect_at'] if 'next_posteffect_at' in body else 0
+            unreliable = body['unreliable'] if 'unreliable' in body else None
+            unreliable_prob = body['unreliable_probability'] if 'unreliable_probability' in body else None
+            unreliable_fill = body['unreliable_fill'] if 'unreliable_fill' in body else None
+
             if 'fill' in body:
                 payload = {
                     'action': 'fill',
                     'value': body['fill']
                 }
+                if unreliable_fill is not None:
+                    payload.update({
+                        'unreliable': unreliable_fill,
+                        'probability': unreliable_prob
+                    })
                 utils.postCloudTask(constants.PAINTER_QUEUE, '/matrix/task', payload=payload, start_in=0)
 
             cells = body['paint']
@@ -45,10 +58,27 @@ class PainterConcurrentPaint(Resource):
                         'col': col,
                         'value': value
                     }
+                    if unreliable is not None:
+                        payload.update({
+                            'unreliable': unreliable,
+                            'probability': unreliable_prob
+                        })
                     if delay > 0:
-                        utils.postCloudTask(constants.PAINTER_QUEUE, '/matrix/delayedtask/{}'.format(delay), payload=payload, start_in=0)
+                        utils.postCloudTask(constants.PAINTER_QUEUE, '/matrix/delayedtask/{}'.format(delay), payload=payload, start_in=start_painting_at)
                     else:
-                        utils.postCloudTask(constants.PAINTER_QUEUE, '/matrix/task', payload=payload, start_in=0)
+                        utils.postCloudTask(constants.PAINTER_QUEUE, '/matrix/task', payload=payload, start_in=start_painting_at)
+
+            if 'posteffects' in body:
+                start_at = start_posteffects_at
+                posteffects = body['posteffects']
+                for effect in posteffects:
+                    payload = {
+                        'action': 'posteffect',
+                        'effect': effect
+                    }
+                    utils.postCloudTask(constants.PAINTER_QUEUE, '/matrix/task', payload=payload, start_in=start_at)
+
+                    start_at += next_posteffect_at
 
             success = True
 
@@ -87,8 +117,20 @@ class PainterTask(Resource):
             # print(payload)
 
             action = payload['action']
+            probability = 100 - payload['probability'] if 'probability' in payload else constants.DEFAULT_PROBABILITY
+            if probability > 100:
+                probability = 100
+            if probability < 0:
+                probability = 0
+            unreliable = random.randint(0, 100) > probability if 'unreliable' in payload and payload['unreliable'] else False
+            label = '?' if unreliable else ''
 
-            if action == 'invert_fill':
+            if unreliable:
+                msg = 'UNRELIABLE'
+                logging.warning(msg)
+                msgs.append(msg)
+
+            if action == 'posteffect' and payload['effect'] == 'b&w':
                 dim = constants.CANVAS_DIMENSION
                 matrix = fs.getMatrixAll()
                 if matrix is not None:
@@ -98,12 +140,53 @@ class PainterTask(Resource):
                         for col in range(dim):
                             #   TODO: use position!
                             color = matrix[dim*row + col]['value']
-                            color = constants.LUT_LENGTH - color
 
                             if color >= 0:
+                                if unreliable:
+                                    color = constants.LUT_LENGTH - color
+                                    if color == 5:
+                                        color = 4   #   due to inverse of 5 being 5
+                                color += 100
+
                                 cell_id = 'row{}col{}'.format(row, col)
                                 cell_data = {
                                     'updated': millis,
+                                    'label': label,
+                                    'value': color
+                                }
+
+                                fs.updateMatrixCellBatched(batch, cell_id, cell_data)
+                            cells.append(cell_data)
+                    fs.commitBatch(batch)
+
+                    success = True
+                else:
+                    msg = 'matrix is null'
+                    logging.error(msg)
+                    msgs.append(msg)
+
+            if (action == 'invert_fill') or (action == 'posteffect' and payload['effect'] == 'invert'):
+                dim = constants.CANVAS_DIMENSION
+                matrix = fs.getMatrixAll()
+                if matrix is not None:
+                    batch = fs.initializeBatch()
+                    cells = []
+                    for row in range(dim):
+                        for col in range(dim):
+                            #   TODO: use position!
+                            color = matrix[dim*row + col]['value']
+
+                            if color >= 0:
+                                color = constants.LUT_LENGTH - color
+                                if unreliable:
+                                    color = constants.LUT_LENGTH - color
+                                    if color == 5:
+                                        color = 4   #   due to inverse of 5 being 5
+
+                                cell_id = 'row{}col{}'.format(row, col)
+                                cell_data = {
+                                    'updated': millis,
+                                    'label': label,
                                     'value': color
                                 }
 
@@ -119,6 +202,10 @@ class PainterTask(Resource):
 
             if action == 'fill':
                 color = payload['value']
+                if color >= 0 and unreliable:
+                    color = constants.LUT_LENGTH - color
+                    if color == 5:
+                        color = 4   #   due to inverse of 5 being 5
 
                 dim = constants.CANVAS_DIMENSION
                 batch = fs.initializeBatch()
@@ -129,6 +216,7 @@ class PainterTask(Resource):
                             cell_id = 'row{}col{}'.format(row, col)
                             cell_data = {
                                 'updated': millis,
+                                'label': label,
                                 'value': color
                             }
 
@@ -145,12 +233,20 @@ class PainterTask(Resource):
                 col = payload['col']
 
                 if color >= 0:
+                    if unreliable:
+                        color = constants.LUT_LENGTH - color
+                        if color == 5:
+                            color = 4   #   due to inverse of 5 being 5
+
                     cell_id = 'row{}col{}'.format(row, col)
                     cell_data = {
                         'updated': millis,
+                        'label': label,
                         'value': color
                     }
                     fs.updateMatrixCell(cell_id, cell_data)
+
+                    print('{} -> {}'.format(cell_id, color))
 
                 success = True
 
@@ -161,12 +257,16 @@ class PainterTask(Resource):
                 cell = fs.getMatrixByCoords(row, col)
                 if cell is not None:
                     color = cell[0]['value']
-                    color = constants.LUT_LENGTH - color
 
                     if color >= 0:
+                        color = constants.LUT_LENGTH - color
+                        if unreliable:
+                            color = constants.LUT_LENGTH - color
+
                         cell_id = 'row{}col{}'.format(row, col)
                         cell_data = {
                             'updated': millis,
+                            'label': label,
                             'value': color
                         }
                         fs.updateMatrixCell(cell_id, cell_data)
@@ -184,6 +284,9 @@ class PainterTask(Resource):
 
         if success:
             return_code = 200
+
+            if unreliable:
+                return_code = 404
 
         return response_obj, return_code
 
