@@ -44,6 +44,7 @@ class Matrix(Resource):
 
         batch = fs.initializeBatch()
 
+        order_to_be_read = 0
         cells = []
         for row in range(dim):
             for col in range(dim):
@@ -52,6 +53,7 @@ class Matrix(Resource):
                     'created': millis,
                     'updated': millis,
                     'id': cell_id,
+                    'position': order_to_be_read,
                     'row': row,
                     'col': col,
                     'value': 0
@@ -59,6 +61,8 @@ class Matrix(Resource):
 
                 fs.setMatrixCellBatched(batch, cell_id, cell_data)
                 cells.append(cell_data)
+
+                order_to_be_read += 1
 
         fs.commitBatch(batch)
 

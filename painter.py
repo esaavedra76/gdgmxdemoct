@@ -10,7 +10,7 @@ import json
 import time
 
 
-class PainterPaint(Resource):
+class PainterConcurrentPaint(Resource):
     def post(self):
         millis, ts = utils.get_utc_timestamp()
 
@@ -27,12 +27,14 @@ class PainterPaint(Resource):
                     'action': 'fill',
                     'value': body['fill']
                 }
-                utils.postCloudTask(constants.PAINTER_QUEUE, '/matrix/task', payload=payload, start_in=1)
+                utils.postCloudTask(constants.PAINTER_QUEUE, '/matrix/task', payload=payload, start_in=0)
 
             cells = body['paint']
             for row, cols in enumerate(cells):
                 for col, value in enumerate(cols):
                     colors.append(value)
+
+                    delay = 5
 
                     payload = {
                         'action': 'paint',
@@ -40,7 +42,7 @@ class PainterPaint(Resource):
                         'col': col,
                         'value': value
                     }
-                    utils.postCloudTask(constants.PAINTER_QUEUE, '/matrix/task', payload=payload, start_in=1)
+                    utils.postCloudTask(constants.PAINTER_QUEUE, '/matrix/delayedtask/{}'.format(delay), payload=payload, start_in=0)
 
             success = True
 
@@ -58,25 +60,59 @@ class PainterPaint(Resource):
 
 
 class PainterTask(Resource):
-    def post(self):
+    def post(self, **kwargs):
         millis, ts = utils.get_utc_timestamp()
 
         msgs = []
         success = False
         return_code = 403
 
-        time.sleep(constants.DELAY_IN_SECS)
+        if 'delay' in kwargs:
+            delay = kwargs['delay']
+            msg = 'applying a delay of {}s'.format(delay)
+            logging.warning(msg)
+            msgs.append(msg)
+            time.sleep(delay)
 
         payload = request.get_data(as_text=True) or None
         if payload is not None:
             payload = json.loads(payload)
 
-            print(payload)
+            # print(payload)
 
             action = payload['action']
-            color = payload['value']
+
+            if action == 'invert_fill':
+                dim = 5
+                matrix = fs.getMatrixAll()
+                if matrix is not None:
+                    batch = fs.initializeBatch()
+                    cells = []
+                    for row in range(dim):
+                        for col in range(dim):
+                            #   TODO: use position!
+                            color = matrix[dim*row + col]['value']
+                            color = constants.LUT_LENGTH - color
+
+                            cell_id = 'row{}col{}'.format(row, col)
+                            cell_data = {
+                                'updated': millis,
+                                'value': color
+                            }
+
+                            fs.updateMatrixCellBatched(batch, cell_id, cell_data)
+                            cells.append(cell_data)
+                    fs.commitBatch(batch)
+
+                    success = True
+                else:
+                    msg = 'matrix is null'
+                    logging.error(msg)
+                    msgs.append(msg)
 
             if action == 'fill':
+                color = payload['value']
+
                 dim = 5
                 batch = fs.initializeBatch()
                 cells = []
@@ -92,11 +128,13 @@ class PainterTask(Resource):
                         cells.append(cell_data)
                 fs.commitBatch(batch)
 
+                success = True
+
             if action == 'paint':
+                color = payload['value']
+
                 row = payload['row']
                 col = payload['col']
-
-                time.sleep(constants.DELAY_IN_SECS)
 
                 cell_id = 'row{}col{}'.format(row, col)
                 cell_data = {
@@ -105,7 +143,30 @@ class PainterTask(Resource):
                 }
                 fs.updateMatrixCell(cell_id, cell_data)
 
-            success = True
+                success = True
+
+            if action == 'invert':
+                row = payload['row']
+                col = payload['col']
+
+                cell = fs.getMatrixByCoords(row, col)
+                if cell is not None:
+                    color = cell[0]['value']
+                    color = constants.LUT_LENGTH - color
+
+                    cell_id = 'row{}col{}'.format(row, col)
+                    cell_data = {
+                        'updated': millis,
+                        'value': color
+                    }
+                    fs.updateMatrixCell(cell_id, cell_data)
+
+                    success = True
+
+                else:
+                    msg = 'unable to read cell at {},{}'.format(row, col)
+                    logging.error(msg)
+                    msgs.append(msg)
 
         response_obj = {'timestamp': millis,
                         'msgs': msgs,

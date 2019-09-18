@@ -40,6 +40,15 @@ def updateMatrixCell(cell_id, cell_data):
         return False
 
 
+def getMatrixOrdered():
+    query_ref = firestore.client().collection('matrix').orderBy(u'position')
+    try:
+        return [el.to_dict() for el in query_ref.get()]
+    except:
+        logging.error("document(s) not found")
+        return None
+
+
 def getMatrixAll():
     query_ref = firestore.client().collection('matrix')
     try:
@@ -51,6 +60,15 @@ def getMatrixAll():
 
 def getMatrix(row):
     query_ref = firestore.client().collection('matrix').where(u'row', u'==', row)
+    try:
+        return [el.to_dict() for el in query_ref.get()]
+    except:
+        logging.error("document(s) not found")
+        return None
+
+
+def getMatrixByCoords(row, col):
+    query_ref = firestore.client().collection('matrix').where(u'row', u'==', row).where(u'col', u'==', col)
     try:
         return [el.to_dict() for el in query_ref.get()]
     except:

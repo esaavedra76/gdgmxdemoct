@@ -39,12 +39,57 @@ Accept: application/json
 }
 
 ###
-POST {{host}}/matrix/paint
+POST {{host}}/matrix/task
 Content-Type: application/json
 Accept: application/json
 
 {
-  "fill": 2,
+  "action": "paint",
+  "row": 0,
+  "col": 0,
+  "value": 5
+}
+
+
+###
+POST {{host}}/matrix/task
+Content-Type: application/json
+Accept: application/json
+
+{
+  "action": "invert",
+  "row": 1,
+  "col": 0
+}
+
+###
+POST {{host}}/matrix/task
+Content-Type: application/json
+Accept: application/json
+
+{
+  "action": "invert_fill"
+}
+
+###
+POST {{host}}/matrix/delayedtask/6
+Content-Type: application/json
+Accept: application/json
+
+{
+  "action": "paint",
+  "row": 0,
+  "col": 0,
+  "value": 5
+}
+
+###
+POST {{host}}/matrix/concurrent
+Content-Type: application/json
+Accept: application/json
+
+{
+  "fill": 5,
   "paint": [
     [
       0,
