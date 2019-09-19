@@ -126,7 +126,7 @@ class PainterTask(Resource):
             label = '?' if unreliable else ''
 
             if unreliable:
-                msg = 'UNRELIABLE'
+                msg = '{} UNRELIABLE'.format(action)
                 logging.warning(msg)
                 msgs.append(msg)
 

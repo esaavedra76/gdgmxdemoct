@@ -14,7 +14,7 @@ Accept: application/json
 
 {
   "unreliable": true,
-  "unreliable_probability": 80,
+  "unreliable_probability": 50,
   "delay": 0,
   "fill": 4,
   "paint": [
@@ -111,7 +111,7 @@ Accept: application/json
 
 {
   "unreliable": true,
-  "unreliable_probability": 80,
+  "unreliable_probability": 10,
   "unreliable_fill": false,
   "start_painting_at": 5,
   "start_posteffects_at": 20,
